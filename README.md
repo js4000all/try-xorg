@@ -72,3 +72,9 @@ X displayをターゲットに、playwrightでchromiumを起動する。
 # exam内で
 DISPLAY=:0 node 02_headed.js
 ```
+
+kioskモードでも表示してみる。
+```bash
+# exam内で
+DISPLAY=:0 node 03_kiosk.js
+```
