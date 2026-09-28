@@ -89,3 +89,43 @@ DISPLAY=:0 node 04_app.js
 
 * `--kiosk`はchromiumに渡っているが、キオスクモードにならなかった
 * `--app=URL + --window-position + --window-size`なら、WMなしでも期待どおりの表示になった
+
+## 外部モニタを使ってみる
+
+```bash
+$ DISPLAY=:0 xrandr
+LVDS-1 connected primary 1280x800+0+0 (normal left inverted right x axis y axis) 0mm x 0mm
+   1280x800      59.91*+
+   ...
+VGA-1 connected
+   1024x600      59.98 +
+   1920x1080     60.00
+   ...
+```
+
+外部モニタだけを有効化する。
+```bash
+DISPLAY=:0 xrandr \
+  --output LVDS-1 --off \
+  --output VGA-1 --mode 1024x600 --primary
+```
+```bash
+$ DISPLAY=:0 xrandr
+Screen 0: minimum 320 x 200, current 1024 x 600, maximum 8192 x 8192
+LVDS-1 connected (normal left inverted right x axis y axis)
+  1280x800      59.91 +  59.81
+  ...
+VGA-1 connected primary 1024x600+0+0 (normal left inverted right x axis y axis) 510mm x 290mm
+  1024x600      59.98*+
+  ...
+```
+
+`xrandr`の"connected primary"の部分を拾って、動的にwindow sizeを設定するバージョン。
+```bash
+# exam内で
+DISPLAY=:0 node 05_flexible_window.js
+```
+メインモニターを切り替えて、追従するか試す。
+```bash
+DISPLAY=:0 xrandr   --output LVDS-1 --mode 1280x800  --primary   --output VGA-1 --mode 1024x600
+```
