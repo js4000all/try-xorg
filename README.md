@@ -73,8 +73,19 @@ X displayをターゲットに、playwrightでchromiumを起動する。
 DISPLAY=:0 node 02_headed.js
 ```
 
-kioskモードでも表示してみる。
+kioskオプション付きでも表示してみる。
 ```bash
 # exam内で
 DISPLAY=:0 node 03_kiosk.js
 ```
+これは上手く行かない。キオスクモードにならない。
+
+`app=`で表示してみる。
+```bash
+# exam内で
+DISPLAY=:0 node 04_app.js
+```
+これは期待通りになった。
+
+* `--kiosk`はchromiumに渡っているが、キオスクモードにならなかった
+* `--app=URL + --window-position + --window-size`なら、WMなしでも期待どおりの表示になった
