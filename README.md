@@ -235,3 +235,93 @@ VGA-1 connected 1024x600+0+0 (normal left inverted right x axis y axis) 510mm x 
 出力先の変更もできた。物理世界では、xorgがVGAにだけ表示され、内蔵パネルがオフな状態になっている。
 
 ここでPCを再起動したところ、上記の手順が再現しなくなった。
+
+## Playwrightを自動起動する
+
+- getty(tty1)に仕込みを入れ、起動時に自動ログインするようにする
+- 対象ユーザの`.bash_profile`で`startx`する
+- `.xinitrc`を編集し、Xサーバ起動時にPlaywrightラッパーを実行するようにする
+
+```text
+電源ON
+  ↓
+Debian起動
+  ↓
+tty1へ自動ログイン (getty@tty1.service)
+  ↓
+.bash_profile
+  ↓
+startx
+  ↓
+.xinitrc
+  ├─ xset
+  ├─ xrandr
+  └─ Node / Playwright
+        ↓
+      Chromium --app=...
+```
+
+### Xサーバ起動時にPlaywrightが起動するようにする
+
+まず、`.xinitrc`をサイネージ起動スクリプトに変える。
+
+```bash
+cat > ~/.xinitrc <<'EOF'
+#!/bin/sh
+
+# 画面ブランキングを無効化
+xset s off
+xset -dpms
+xset s noblank
+
+# 外部モニターを使用する場合
+# 現在の試験機では VGA-1。最終的には現場PCに合わせる。
+xrandr \
+  --output LVDS-1 --off \
+  --output VGA-1 --auto --primary
+
+# Playwrightラッパーを起動
+cd ~/try-xorg/exam
+exec node 05_flexible_window.js
+EOF
+
+chmod +x ~/.xinitrc
+```
+ここでは`DISPLAY=:0`は不要。
+`.xinitrc`は`startx`が起動したXセッション内で実行するので、`DISPLAY`はすでに設定されているため。
+
+`exec node`により、シェルがnodeプロセスに置き換わることで、chromiumを閉じるとXサーバも終了する挙動になる。
+
+### 起動時に自動ログインする
+
+次にtty1を自動ログインにする。systemdのgettyにoverrideを作る。
+```bash
+sudo systemctl edit getty@tty1.service
+``
+
+開いたエディタで、以下を入れる。
+```ini
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin user --noclear %I $TERM
+```
+`--autologin user`の部分は対象ユーザ名にする。
+
+```bash
+sudo systemctl daemon-reload
+```
+
+### ログインした時に`startx`を実行する
+
+さらに、ログインしたtty1で自動的に`startx`する。
+Bashなら`~/.bash_profile`に以下を追加。
+```bash
+if [ -f ~/.bashrc ]; then
+    . ~/.bashrc
+fi
+
+if [ "$(tty)" = "/dev/tty1" ] && [ -z "$DISPLAY" ]; then
+    exec startx
+fi
+```
+tty1以外では通常起動にするのがミソ。
