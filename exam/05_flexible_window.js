@@ -1,18 +1,17 @@
 const { chromium } = require('playwright');
 const { execFileSync } = require('child_process');
 
-function getScreenSize() {
+function getActiveScreenSize() {
   const output = execFileSync('xrandr', ['--current'], {
     encoding: 'utf8',
   });
 
-  // primary出力を取得
   const match = output.match(
-    /^(\S+) connected primary (\d+)x(\d+)\+\d+\+\d+/m
+    /^(\S+) connected(?: primary)? (\d+)x(\d+)\+\d+\+\d+/m
   );
 
   if (!match) {
-    throw new Error('Primary display not found');
+    throw new Error('Active display not found');
   }
 
   return {
@@ -23,7 +22,7 @@ function getScreenSize() {
 }
 
 (async () => {
-  const screen = getScreenSize();
+  const screen = getActiveScreenSize();
 
   console.log(
     `display: ${screen.output} ${screen.width}x${screen.height}`
