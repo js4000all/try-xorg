@@ -129,3 +129,109 @@ DISPLAY=:0 node 05_flexible_window.js
 ```bash
 DISPLAY=:0 xrandr   --output LVDS-1 --mode 1280x800  --primary   --output VGA-1 --mode 1024x600
 ```
+
+## コンソールはそのままで外部モニタにchromiumを出力
+
+### ３つのグループ
+
+#### 仮想ターミナル
+
+`tty1`, `tty6`などは Linux の仮想ターミナルの番号。物理キーボードと画面を使うCUIセッションの「席番号」のようなもの。
+
+`vt6`の`vt`は Virtual Terminal の略で、実質的に同じ。Xorgを
+
+#### Xサーバのdisplay識別番号
+
+`:0`はX11のdisplay番号。Xサーバの識別番号。
+```bash
+Xorg :0 vt6
+```
+なら、`:0`というX displayは6番の仮想ターミナルを使うという意味。
+
+```bash
+DISPLAY=:0 chromium
+```
+とすると、「X display 0番に接続して、chromiumを表示」という意味。
+
+#### モニター
+
+実際のモニターは別の番号体系で、xrandr の出力。
+```text
+LVDS-1
+VGA-1
+HDMI-1
+```
+
+まとめると、全体像はこう。
+```text
+VT / tty（仮想ターミナル）
+  ↓
+Xorg display（Xサーバのdisplay識別番号）
+  ↓
+xrandr output（実際のモニター）
+```
+```text
+① Linux VT
+   tty1 / vt1
+   tty6 / vt6
+        │
+        │ どの表示環境がGPUを使うか
+        ▼
+② Xサーバー
+   :0
+   :1
+        │
+        │ Xorgが管理する物理出力
+        ▼
+③ Connector / Output
+   LVDS-1
+   VGA-1
+   HDMI-1
+        │
+        ▼
+   物理モニター
+```
+
+### ２つの仮想ターミナルを同時利用できるかの実験
+
+今回は関係性を確認したいので、前回と同じ vt1 上でそのまま startx するのではなく、Xorgを別VTに載せる形で試す。
+
+現状はこう。
+```bash
+$ systemctl list-units 'getty@tty*.service'
+  UNIT               LOAD   ACTIVE SUB     DESCRIPTION
+  getty@tty1.service loaded active running Getty on tty1
+  getty@tty6.service loaded active running Getty on tty6
+```
+SSH側から tty6 の getty を止めて、空ける。
+```bash
+sudo systemctl stop getty@tty6.service
+```
+この時点で以下のようになる。内蔵パネルには変化無し。
+```bash
+$ systemctl list-units 'getty@tty*.service'
+  UNIT               LOAD   ACTIVE SUB     DESCRIPTION
+  getty@tty1.service loaded active running Getty on tty1
+```
+
+実験としては、まずroot権限でXorgをVT6に直接起動して、VT6でXが動くかだけ確認。
+実機上で、
+```bash
+sudo Xorg :0 vt6 -nolisten tcp
+```
+起動した。vt1=CUI, vt6=xorgという状態になった。
+
+```bash
+$ DISPLAY=:0 xrandr --output LVDS-1 --off --output VGA-1 --mode 1024x600 --primary
+$ DISPLAY=:0 xrandr
+Screen 0: minimum 320 x 200, current 1024 x 600, maximum 8192 x 8192
+LVDS-1 connected primary (normal left inverted right x axis y axis)
+    1280x800      59.91 +  59.81
+    ...
+VGA-1 connected 1024x600+0+0 (normal left inverted right x axis y axis) 510mm x 290mm
+    1024x600      59.98*+
+    ...
+```
+出力先の変更もできた。物理世界では、xorgがVGAにだけ表示され、内蔵パネルがオフな状態になっている。
+
+ここでPCを再起動したところ、上記の手順が再現しなくなった。
